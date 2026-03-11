@@ -9,6 +9,7 @@ const musicIndicatorEl = document.getElementById("music-indicator");
 const accountNameEl = document.getElementById("account-name");
 const accountSaveEl = document.getElementById("account-save");
 const activeAccountEl = document.getElementById("active-account");
+const accountBestEl = document.getElementById("account-best");
 const runSummaryEl = document.getElementById("run-summary");
 const runSummaryMetaEl = document.getElementById("run-summary-meta");
 const runLeaderboardListEl = document.getElementById("run-leaderboard-list");
@@ -180,14 +181,29 @@ function ensureAccount(name) {
       runs: 0,
       updatedAt: Date.now(),
     };
+  } else {
+    const existing = accounts[accountName];
+    existing.bestScore = Math.max(0, Math.floor(Number(existing.bestScore) || 0));
+    existing.runs = Math.max(0, Math.floor(Number(existing.runs) || 0));
+    existing.updatedAt = Number(existing.updatedAt) || Date.now();
   }
   return accountName;
+}
+
+function renderActiveAccountMeta() {
+  if (activeAccountEl) {
+    activeAccountEl.textContent = `Active: ${activeAccount}`;
+  }
+  if (accountBestEl) {
+    const account = accounts[activeAccount] || { bestScore: 0 };
+    accountBestEl.textContent = `Best: ${account.bestScore}`;
+  }
 }
 
 function setActiveAccount(name) {
   activeAccount = ensureAccount(name);
   if (accountNameEl) accountNameEl.value = activeAccount;
-  if (activeAccountEl) activeAccountEl.textContent = `Active: ${activeAccount}`;
+  renderActiveAccountMeta();
   saveAccounts();
   saveActiveAccount();
 }
@@ -235,6 +251,10 @@ function recordRun(score) {
   account.runs += 1;
   account.bestScore = Math.max(account.bestScore, score);
   account.updatedAt = Date.now();
+
+  if (accountName === activeAccount) {
+    renderActiveAccountMeta();
+  }
 
   runLeaderboard.push({
     name: accountName,

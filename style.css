@@ -99,6 +99,11 @@ h1 {
   font-weight: 700;
 }
 
+.account-best {
+  font-weight: 700;
+  color: #b7d5ff;
+}
+
 canvas {
   width: 100%;
   height: auto;
@@ -182,31 +187,6 @@ canvas {
   line-height: 1.35;
 }
 
-.leaderboard {
-  margin-top: 12px;
-  border: 2px solid #8eb9f8;
-  border-radius: 10px;
-  background: rgba(8, 20, 46, 0.82);
-  padding: 10px 12px;
-}
-
-.leaderboard h2 {
-  margin: 0 0 8px;
-  font-size: 1rem;
-}
-
-#top-score-value {
-  margin: 0;
-  padding-left: 22px;
-  font-weight: 700;
-  font-size: 1rem;
-  line-height: 1.35;
-}
-
-#top-score-value li {
-  margin-bottom: 3px;
-}
-
 .run-summary {
   margin-top: 12px;
   border: 2px solid #8eb9f8;
@@ -256,6 +236,10 @@ canvas {
 
   .account-active {
     margin-left: 0;
+    width: 100%;
+  }
+
+  .account-best {
     width: 100%;
   }
 
