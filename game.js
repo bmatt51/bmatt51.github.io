@@ -15,7 +15,7 @@ const runSummaryMetaEl = document.getElementById("run-summary-meta");
 const runLeaderboardListEl = document.getElementById("run-leaderboard-list");
 
 const SCORE_STORAGE_KEY = "dino_dodger_top_score_v1";
-const MAX_TOP_SCORES = 1;
+const MAX_TOP_SCORES = 5;
 const JUMP_BUFFER_MS = 120;
 const BIOME_SWITCH_SCORE = 5000;
 const BIOME_BEACH_SCORE = 10000;
@@ -302,7 +302,21 @@ function saveHighScores() {
 }
 
 function renderHighScores() {
-  topScoreValueEl.textContent = highScores[0] ? `${highScores[0]} pts` : "---";
+  if (!topScoreValueEl) return;
+  topScoreValueEl.innerHTML = "";
+
+  if (highScores.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "---";
+    topScoreValueEl.appendChild(li);
+    return;
+  }
+
+  for (const score of highScores.slice(0, MAX_TOP_SCORES)) {
+    const li = document.createElement("li");
+    li.textContent = `${score} pts`;
+    topScoreValueEl.appendChild(li);
+  }
 }
 
 function recordScore(score) {
@@ -666,7 +680,10 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-window.addEventListener("pointerdown", () => {
+window.addEventListener("pointerdown", (e) => {
+  if (e.target !== canvas) {
+    return;
+  }
   queueJump();
 });
 

@@ -197,8 +197,14 @@ canvas {
 
 #top-score-value {
   margin: 0;
+  padding-left: 22px;
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+#top-score-value li {
+  margin-bottom: 3px;
 }
 
 .run-summary {
