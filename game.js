@@ -114,9 +114,21 @@ function loadHighScores() {
     if (!Array.isArray(parsed)) return [];
 
     return parsed
-      .map((value) => Math.floor(Number(value)))
-      .filter((value) => Number.isFinite(value) && value > 0)
-      .sort((a, b) => b - a)
+      .map((entry) => {
+        if (entry && typeof entry === "object") {
+          return {
+            name: cleanAccountName(entry.name) || "Guest",
+            score: Math.floor(Number(entry.score)),
+          };
+        }
+
+        return {
+          name: "Guest",
+          score: Math.floor(Number(entry)),
+        };
+      })
+      .filter((entry) => Number.isFinite(entry.score) && entry.score > 0)
+      .sort((a, b) => b.score - a.score)
       .slice(0, MAX_TOP_SCORES);
   } catch {
     return [];
@@ -312,9 +324,9 @@ function renderHighScores() {
     return;
   }
 
-  for (const score of highScores.slice(0, MAX_TOP_SCORES)) {
+  for (const entry of highScores.slice(0, MAX_TOP_SCORES)) {
     const li = document.createElement("li");
-    li.textContent = `${score} pts`;
+    li.textContent = `${entry.name} - ${entry.score} pts`;
     topScoreValueEl.appendChild(li);
   }
 }
@@ -322,8 +334,11 @@ function renderHighScores() {
 function recordScore(score) {
   if (score <= 0) return;
 
-  highScores.push(score);
-  highScores.sort((a, b) => b - a);
+  highScores.push({
+    name: activeAccount || "Guest",
+    score,
+  });
+  highScores.sort((a, b) => b.score - a.score);
   highScores = highScores.slice(0, MAX_TOP_SCORES);
   saveHighScores();
   renderHighScores();
