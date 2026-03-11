@@ -30,7 +30,7 @@ const HUNTER_OBSTACLE_MIN_GAP = 220;
 const HUNTER_HUNTER_MIN_GAP = 150;
 const ACCOUNT_STORAGE_KEY = "dino_dodger_accounts_v1";
 const ACTIVE_ACCOUNT_KEY = "dino_dodger_active_account_v1";
-const RUN_LEADERBOARD_KEY = "dino_dodger_time_leaderboard_v1";
+const RUN_LEADERBOARD_KEY = "dino_dodger_score_leaderboard_v2";
 const MAX_RUN_LEADERBOARD = 5;
 
 const world = {
@@ -107,13 +107,6 @@ function cleanAccountName(name) {
   return cleaned.slice(0, 16);
 }
 
-function formatDuration(ms) {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const minutes = Math.floor(total / 60);
-  const seconds = total % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
-
 function loadAccounts() {
   try {
     const raw = localStorage.getItem(ACCOUNT_STORAGE_KEY);
@@ -160,11 +153,11 @@ function loadRunLeaderboard() {
       .filter((entry) => entry && typeof entry === "object")
       .map((entry) => ({
         name: cleanAccountName(entry.name) || "Guest",
-        timeMs: Math.max(0, Math.floor(Number(entry.timeMs) || 0)),
+        score: Math.max(0, Math.floor(Number(entry.score) || 0)),
         at: Number(entry.at) || Date.now(),
       }))
-      .filter((entry) => entry.timeMs > 0)
-      .sort((a, b) => b.timeMs - a.timeMs)
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
       .slice(0, MAX_RUN_LEADERBOARD);
   } catch {
     return [];
@@ -183,7 +176,7 @@ function ensureAccount(name) {
   const accountName = cleanAccountName(name) || "Guest";
   if (!accounts[accountName]) {
     accounts[accountName] = {
-      bestTimeMs: 0,
+      bestScore: 0,
       runs: 0,
       updatedAt: Date.now(),
     };
@@ -213,18 +206,18 @@ function renderRunLeaderboard() {
 
   for (const entry of top) {
     const li = document.createElement("li");
-    li.textContent = `${entry.name} - ${formatDuration(entry.timeMs)}`;
+    li.textContent = `${entry.name} - ${entry.score} pts`;
     runLeaderboardListEl.appendChild(li);
   }
 }
 
-function showRunSummary(lastScore, lastTimeMs) {
+function showRunSummary(lastScore) {
   if (!runSummaryEl || !runSummaryMetaEl) return;
   const account = accounts[activeAccount] || {
-    bestTimeMs: 0,
+    bestScore: 0,
     runs: 0,
   };
-  runSummaryMetaEl.textContent = `Account: ${activeAccount} | Time: ${formatDuration(lastTimeMs)} | Best Time: ${formatDuration(account.bestTimeMs)} | Score: ${lastScore} | Runs: ${account.runs}`;
+  runSummaryMetaEl.textContent = `Account: ${activeAccount} | Score: ${lastScore} | Best Score: ${account.bestScore} | Runs: ${account.runs}`;
   renderRunLeaderboard();
   runSummaryEl.classList.remove("hidden");
 }
@@ -234,21 +227,21 @@ function hideRunSummary() {
   runSummaryEl.classList.add("hidden");
 }
 
-function recordRun(timeMs) {
-  if (timeMs <= 0) return;
+function recordRun(score) {
+  if (score <= 0) return;
 
   const accountName = ensureAccount(activeAccount);
   const account = accounts[accountName];
   account.runs += 1;
-  account.bestTimeMs = Math.max(account.bestTimeMs, timeMs);
+  account.bestScore = Math.max(account.bestScore, score);
   account.updatedAt = Date.now();
 
   runLeaderboard.push({
     name: accountName,
-    timeMs,
+    score,
     at: Date.now(),
   });
-  runLeaderboard.sort((a, b) => b.timeMs - a.timeMs);
+  runLeaderboard.sort((a, b) => b.score - a.score);
   runLeaderboard = runLeaderboard.slice(0, MAX_RUN_LEADERBOARD);
 
   saveAccounts();
@@ -524,13 +517,12 @@ function endRun(message, playFailSound = true) {
 
   world.playing = false;
   const finalScore = Math.floor(world.score);
-  const finalTimeMs = gameTime;
   if (playFailSound) {
     playCrash();
   }
   statusEl.textContent = `${message} - tap/press jump to restart`;
-  recordRun(finalTimeMs);
-  showRunSummary(finalScore, finalTimeMs);
+  recordRun(finalScore);
+  showRunSummary(finalScore);
 }
 
 function reset(startPaused = false) {
