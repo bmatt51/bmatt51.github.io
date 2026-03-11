@@ -5,7 +5,6 @@ const statusEl = document.getElementById("status");
 const topScoreEl = document.getElementById("top-score");
 const topJumpsEl = document.getElementById("top-jumps");
 const invincibleTimerEl = document.getElementById("invincible-timer");
-const topScoreValueEl = document.getElementById("top-score-value");
 const musicIndicatorEl = document.getElementById("music-indicator");
 const accountNameEl = document.getElementById("account-name");
 const accountSaveEl = document.getElementById("account-save");
@@ -14,8 +13,6 @@ const runSummaryEl = document.getElementById("run-summary");
 const runSummaryMetaEl = document.getElementById("run-summary-meta");
 const runLeaderboardListEl = document.getElementById("run-leaderboard-list");
 
-const SCORE_STORAGE_KEY = "dino_dodger_top_score_v1";
-const MAX_TOP_SCORES = 5;
 const JUMP_BUFFER_MS = 120;
 const BIOME_SWITCH_SCORE = 5000;
 const BIOME_BEACH_SCORE = 10000;
@@ -33,8 +30,8 @@ const HUNTER_OBSTACLE_MIN_GAP = 220;
 const HUNTER_HUNTER_MIN_GAP = 150;
 const ACCOUNT_STORAGE_KEY = "dino_dodger_accounts_v1";
 const ACTIVE_ACCOUNT_KEY = "dino_dodger_active_account_v1";
-const RUN_LEADERBOARD_KEY = "dino_dodger_leaderboard_v1";
-const MAX_RUN_LEADERBOARD = 30;
+const RUN_LEADERBOARD_KEY = "dino_dodger_time_leaderboard_v1";
+const MAX_RUN_LEADERBOARD = 5;
 
 const world = {
   w: canvas.width,
@@ -80,7 +77,6 @@ let lastPowerupSpawn = 0;
 let lastRockSpawn = 0;
 let lastWaveSpawn = 0;
 let gameTime = 0;
-let highScores = [];
 let jumpBufferTimer = 0;
 let firstHunterSpawned = false;
 let awaitingFirstStart = true;
@@ -106,38 +102,16 @@ try {
   loseSound = null;
 }
 
-function loadHighScores() {
-  try {
-    const raw = localStorage.getItem(SCORE_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed
-      .map((entry) => {
-        if (entry && typeof entry === "object") {
-          return {
-            name: cleanAccountName(entry.name) || "Guest",
-            score: Math.floor(Number(entry.score)),
-          };
-        }
-
-        return {
-          name: "Guest",
-          score: Math.floor(Number(entry)),
-        };
-      })
-      .filter((entry) => Number.isFinite(entry.score) && entry.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, MAX_TOP_SCORES);
-  } catch {
-    return [];
-  }
-}
-
 function cleanAccountName(name) {
   const cleaned = String(name || "").replace(/\s+/g, " ").trim();
   return cleaned.slice(0, 16);
+}
+
+function formatDuration(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function loadAccounts() {
@@ -186,11 +160,11 @@ function loadRunLeaderboard() {
       .filter((entry) => entry && typeof entry === "object")
       .map((entry) => ({
         name: cleanAccountName(entry.name) || "Guest",
-        score: Math.max(0, Math.floor(Number(entry.score) || 0)),
+        timeMs: Math.max(0, Math.floor(Number(entry.timeMs) || 0)),
         at: Number(entry.at) || Date.now(),
       }))
-      .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score)
+      .filter((entry) => entry.timeMs > 0)
+      .sort((a, b) => b.timeMs - a.timeMs)
       .slice(0, MAX_RUN_LEADERBOARD);
   } catch {
     return [];
@@ -209,9 +183,8 @@ function ensureAccount(name) {
   const accountName = cleanAccountName(name) || "Guest";
   if (!accounts[accountName]) {
     accounts[accountName] = {
-      bestScore: 0,
+      bestTimeMs: 0,
       runs: 0,
-      totalScore: 0,
       updatedAt: Date.now(),
     };
   }
@@ -230,7 +203,7 @@ function renderRunLeaderboard() {
   if (!runLeaderboardListEl) return;
   runLeaderboardListEl.innerHTML = "";
 
-  const top = runLeaderboard.slice(0, 10);
+  const top = runLeaderboard.slice(0, MAX_RUN_LEADERBOARD);
   if (top.length === 0) {
     const li = document.createElement("li");
     li.textContent = "No runs yet";
@@ -240,18 +213,18 @@ function renderRunLeaderboard() {
 
   for (const entry of top) {
     const li = document.createElement("li");
-    li.textContent = `${entry.name} - ${entry.score}`;
+    li.textContent = `${entry.name} - ${formatDuration(entry.timeMs)}`;
     runLeaderboardListEl.appendChild(li);
   }
 }
 
-function showRunSummary(lastScore) {
+function showRunSummary(lastScore, lastTimeMs) {
   if (!runSummaryEl || !runSummaryMetaEl) return;
   const account = accounts[activeAccount] || {
-    bestScore: 0,
+    bestTimeMs: 0,
     runs: 0,
   };
-  runSummaryMetaEl.textContent = `Account: ${activeAccount} | Score: ${lastScore} | Personal Best: ${account.bestScore} | Runs: ${account.runs}`;
+  runSummaryMetaEl.textContent = `Account: ${activeAccount} | Time: ${formatDuration(lastTimeMs)} | Best Time: ${formatDuration(account.bestTimeMs)} | Score: ${lastScore} | Runs: ${account.runs}`;
   renderRunLeaderboard();
   runSummaryEl.classList.remove("hidden");
 }
@@ -261,22 +234,21 @@ function hideRunSummary() {
   runSummaryEl.classList.add("hidden");
 }
 
-function recordRun(score) {
-  if (score <= 0) return;
+function recordRun(timeMs) {
+  if (timeMs <= 0) return;
 
   const accountName = ensureAccount(activeAccount);
   const account = accounts[accountName];
   account.runs += 1;
-  account.totalScore += score;
-  account.bestScore = Math.max(account.bestScore, score);
+  account.bestTimeMs = Math.max(account.bestTimeMs, timeMs);
   account.updatedAt = Date.now();
 
   runLeaderboard.push({
     name: accountName,
-    score,
+    timeMs,
     at: Date.now(),
   });
-  runLeaderboard.sort((a, b) => b.score - a.score);
+  runLeaderboard.sort((a, b) => b.timeMs - a.timeMs);
   runLeaderboard = runLeaderboard.slice(0, MAX_RUN_LEADERBOARD);
 
   saveAccounts();
@@ -303,45 +275,6 @@ function attachAccountEvents() {
       renderRunLeaderboard();
     });
   }
-}
-
-function saveHighScores() {
-  try {
-    localStorage.setItem(SCORE_STORAGE_KEY, JSON.stringify(highScores));
-  } catch {
-    // Ignore storage errors and continue gameplay.
-  }
-}
-
-function renderHighScores() {
-  if (!topScoreValueEl) return;
-  topScoreValueEl.innerHTML = "";
-
-  if (highScores.length === 0) {
-    const li = document.createElement("li");
-    li.textContent = "---";
-    topScoreValueEl.appendChild(li);
-    return;
-  }
-
-  for (const entry of highScores.slice(0, MAX_TOP_SCORES)) {
-    const li = document.createElement("li");
-    li.textContent = `${entry.name} - ${entry.score} pts`;
-    topScoreValueEl.appendChild(li);
-  }
-}
-
-function recordScore(score) {
-  if (score <= 0) return;
-
-  highScores.push({
-    name: activeAccount || "Guest",
-    score,
-  });
-  highScores.sort((a, b) => b.score - a.score);
-  highScores = highScores.slice(0, MAX_TOP_SCORES);
-  saveHighScores();
-  renderHighScores();
 }
 
 function updateHud() {
@@ -591,13 +524,13 @@ function endRun(message, playFailSound = true) {
 
   world.playing = false;
   const finalScore = Math.floor(world.score);
+  const finalTimeMs = gameTime;
   if (playFailSound) {
     playCrash();
   }
   statusEl.textContent = `${message} - tap/press jump to restart`;
-  recordScore(finalScore);
-  recordRun(finalScore);
-  showRunSummary(finalScore);
+  recordRun(finalTimeMs);
+  showRunSummary(finalScore, finalTimeMs);
 }
 
 function reset(startPaused = false) {
@@ -1504,8 +1437,6 @@ attachAccountEvents();
 setActiveAccount(loadActiveAccount());
 renderRunLeaderboard();
 
-highScores = loadHighScores();
-renderHighScores();
 updateMusicIndicator();
 reset(true);
 requestAnimationFrame(frame);
