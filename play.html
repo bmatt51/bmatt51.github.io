@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DinoVeer</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <p class="back-home"><a href="index.html">← Back to DinoVeer site</a></p>
+      <h1>DinoVeer</h1>
+      <p class="hint">Press <strong>Space</strong> / <strong>W</strong> / <strong>↑</strong> (or tap) to jump. Collect yellow powerups for <strong>double jump</strong>.</p>
+      <section class="account-bar" aria-label="Account settings">
+        <label for="account-name">Account</label>
+        <input id="account-name" type="text" maxlength="16" placeholder="Enter player name" />
+        <button id="account-save" type="button">Use Account</button>
+        <span id="active-account" class="account-active">Active: Guest</span>
+      </section>
+      <div class="game-wrap">
+        <canvas id="game" width="1200" height="420" aria-label="DinoVeer game canvas"></canvas>
+        <div class="music-indicator-wrap" aria-live="polite">
+          <img id="music-indicator" class="music-indicator" src="music-on.png" alt="Music on (press M to mute)" />
+        </div>
+        <div id="invincible-timer" class="invincible-timer hidden" aria-live="polite"></div>
+        <aside class="top-hud" aria-label="Live run stats">
+          <div id="top-score">Score: 0</div>
+          <div id="top-jumps">Double Jumps: 0</div>
+        </aside>
+      </div>
+      <div class="hud">
+        <span id="score">Score: 0</span>
+        <span id="status">Running</span>
+      </div>
+      <section id="run-summary" class="run-summary hidden" aria-label="End of run summary">
+        <h2>Run Summary</h2>
+        <div id="run-summary-meta">Score: 0 | Personal Best: 0 | Runs: 0</div>
+        <h3>Leaderboard</h3>
+        <ol id="run-leaderboard-list"></ol>
+      </section>
+      <section class="leaderboard" aria-label="Top score">
+        <h2>Top Score</h2>
+        <div id="top-score-value">---</div>
+      </section>
+    </main>
+    <script src="game.js"></script>
+  </body>
+</html>

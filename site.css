@@ -1,0 +1,262 @@
+:root {
+  --ink: #e8f2ff;
+  --muted: #9fbbdc;
+  --panel: rgba(8, 19, 40, 0.78);
+  --panel-strong: rgba(6, 15, 32, 0.9);
+  --line: #4d7fb9;
+  --line-strong: #7fb3f2;
+  --accent: #4ec7ff;
+  --accent-strong: #9de5ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: "Trebuchet MS", "Avenir Next", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(56rem 30rem at 88% -8%, rgba(121, 188, 255, 0.26) 0%, transparent 60%),
+    radial-gradient(44rem 28rem at -5% 10%, rgba(60, 118, 207, 0.22) 0%, transparent 58%),
+    linear-gradient(180deg, #040c1d 0%, #0d2147 52%, #183a74 100%);
+}
+
+.sky-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    -12deg,
+    transparent 0,
+    transparent 80px,
+    rgba(138, 194, 255, 0.05) 80px,
+    rgba(138, 194, 255, 0.05) 81px
+  );
+  opacity: 0.45;
+}
+
+.topbar,
+main {
+  width: min(1120px, 94vw);
+}
+
+.topbar {
+  margin: 16px auto 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-strong);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 2;
+}
+
+.brand {
+  font-size: 1.28rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.top-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.chip {
+  text-decoration: none;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-weight: 700;
+  background: rgba(24, 51, 95, 0.56);
+}
+
+.chip-strong {
+  color: #031020;
+  background: var(--accent-strong);
+}
+
+main {
+  margin: 14px auto 38px;
+  display: grid;
+  gap: 14px;
+  position: relative;
+  z-index: 2;
+}
+
+.hero,
+.panel,
+.cta {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  backdrop-filter: blur(4px);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 14px;
+  padding: 22px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent-strong);
+  letter-spacing: 0.12em;
+  font-size: 0.73rem;
+  font-weight: 800;
+}
+
+h1 {
+  margin: 8px 0 10px;
+  font-size: clamp(2rem, 5vw, 3.35rem);
+  line-height: 1.02;
+}
+
+.subtitle {
+  margin: 0;
+  max-width: 680px;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 1.03rem;
+}
+
+.hero-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-weight: 800;
+  padding: 10px 16px;
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #031224;
+}
+
+.btn.ghost {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.hero-card,
+.tile {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(8, 20, 43, 0.74);
+}
+
+.hero-card {
+  padding: 14px;
+}
+
+.hero-card h2,
+.panel h2 {
+  margin: 0 0 10px;
+}
+
+.hero-card p {
+  margin: 0 0 9px;
+  color: var(--muted);
+}
+
+.small-link {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--accent-strong);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.panel,
+.cta {
+  padding: 18px;
+}
+
+.grid-2,
+.grid-3 {
+  display: grid;
+  gap: 12px;
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tile {
+  padding: 12px;
+}
+
+.tile h3 {
+  margin: 0 0 8px;
+}
+
+.tile p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.cta {
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    margin-top: 10px;
+  }
+
+  .brand {
+    font-size: 1.04rem;
+  }
+
+  .chip {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+
+  .hero,
+  .panel,
+  .cta {
+    padding: 14px;
+  }
+
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}

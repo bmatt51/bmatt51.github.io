@@ -3,33 +3,86 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DinoDodger</title>
-    <link rel="stylesheet" href="style.css" />
+    <title>DinoVeer | Official Site</title>
+    <link rel="stylesheet" href="site.css" />
   </head>
   <body>
-    <main class="game-shell">
-      <h1>DinoDodger</h1>
-      <p class="hint">Press <strong>Space</strong> / <strong>W</strong> / <strong>↑</strong> (or tap) to jump. Collect yellow powerups for <strong>double jump</strong>.</p>
-      <div class="game-wrap">
-        <canvas id="game" width="1200" height="420" aria-label="DinoDodger game canvas"></canvas>
-        <div class="music-indicator-wrap" aria-live="polite">
-          <img id="music-indicator" class="music-indicator" src="music-on.png" alt="Music on (press M to mute)" />
+    <div class="sky-glow"></div>
+    <header class="topbar">
+      <div class="brand">DinoVeer</div>
+      <nav class="top-actions">
+        <a class="chip" href="#how">How It Works</a>
+        <a class="chip chip-strong" href="play.html">Play</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">ENDLESS ARCADE RUNNER</p>
+          <h1>Veer through storms, cliffs, and chaos.</h1>
+          <p class="subtitle">
+            Jump, double-jump, and outlast each biome while the world gets faster and meaner.
+            Built for quick sessions on phone and desktop.
+          </p>
+          <div class="hero-actions">
+            <a class="btn primary" href="play.html">Play DinoVeer</a>
+            <a class="btn ghost" href="#features">See Features</a>
+          </div>
         </div>
-        <div id="invincible-timer" class="invincible-timer hidden" aria-live="polite"></div>
-        <aside class="top-hud" aria-label="Live run stats">
-          <div id="top-score">Score: 0</div>
-          <div id="top-jumps">Double Jumps: 0</div>
+        <aside class="hero-card" aria-label="Game snapshot">
+          <h2>Live Run Snapshot</h2>
+          <p><strong>Biomes:</strong> 5 dynamic zones</p>
+          <p><strong>Powerups:</strong> double jump + invincible burst</p>
+          <p><strong>Hazards:</strong> hunters, flyers, eggs, shards, waves</p>
+          <a class="small-link" href="play.html">Launch run →</a>
         </aside>
-      </div>
-      <div class="hud">
-        <span id="score">Score: 0</span>
-        <span id="status">Running</span>
-      </div>
-      <section class="leaderboard" aria-label="Top score">
-        <h2>Top Score</h2>
-        <div id="top-score-value">---</div>
+      </section>
+
+      <section id="how" class="panel">
+        <h2>How To Play</h2>
+        <div class="grid-2">
+          <article class="tile">
+            <h3>Controls</h3>
+            <ul>
+              <li>Desktop: Space, W, or Up Arrow</li>
+              <li>Mobile: tap to jump</li>
+              <li>Keyboard: press M to mute music</li>
+            </ul>
+          </article>
+          <article class="tile">
+            <h3>Goal</h3>
+            <ul>
+              <li>Survive as long as possible</li>
+              <li>Stack score through clean dodges and stomps</li>
+              <li>Set account-based leaderboard runs</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="features" class="panel">
+        <h2>Why It Hits</h2>
+        <div class="grid-3">
+          <article class="tile">
+            <h3>Progressive Pace</h3>
+            <p>Starts fair, escalates hard, and keeps pushing through each biome shift.</p>
+          </article>
+          <article class="tile">
+            <h3>Sound + Style</h3>
+            <p>Reactive effects, continuous music, and a visual mood that evolves with score.</p>
+          </article>
+          <article class="tile">
+            <h3>Run Records</h3>
+            <p>Account naming, top-score tracking, and end-of-run leaderboard summaries.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="cta">
+        <h2>Ready to veer?</h2>
+        <a class="btn primary" href="play.html">Start Playing</a>
       </section>
     </main>
-    <script src="game.js"></script>
   </body>
 </html>
