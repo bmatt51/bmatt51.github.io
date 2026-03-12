@@ -1,13 +1,8 @@
-// Fill this with your Firebase Web App config from Firebase Console.
-// If left as null, DinoVeer falls back to local (device-only) leaderboard.
-window.DINOVEER_FIREBASE_CONFIG = null;
-
-// Example:
-// window.DINOVEER_FIREBASE_CONFIG = {
-//   apiKey: "...",
-//   authDomain: "your-project.firebaseapp.com",
-//   projectId: "your-project-id",
-//   storageBucket: "your-project.appspot.com",
-//   messagingSenderId: "...",
-//   appId: "..."
-// };
+window.DINOVEER_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCCDO98Vi19U-9b_kBvPRQ6jkhMLN2C6gg",
+  authDomain: "dinoveer-5697c.firebaseapp.com",
+  projectId: "dinoveer-5697c",
+  storageBucket: "dinoveer-5697c.firebasestorage.app",
+  messagingSenderId: "417545051472",
+  appId: "1:417545051472:web:e694089e95e48afe1ee055"
+};
