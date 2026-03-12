@@ -31,9 +31,9 @@ const HUNTER_OBSTACLE_MIN_GAP = 220;
 const HUNTER_HUNTER_MIN_GAP = 150;
 const ACCOUNT_STORAGE_KEY = "dino_dodger_accounts_v1";
 const ACTIVE_ACCOUNT_KEY = "dino_dodger_active_account_v1";
-const RUN_LEADERBOARD_KEY = "dino_dodger_score_leaderboard_v2";
+const RUN_LEADERBOARD_KEY = "dino_dodger_score_leaderboard_v3";
 const MAX_RUN_LEADERBOARD = 5;
-const GLOBAL_LEADERBOARD_COLLECTION = "leaderboard_scores";
+const GLOBAL_LEADERBOARD_COLLECTION = "leaderboard_scores_v2";
 
 const world = {
   w: canvas.width,
