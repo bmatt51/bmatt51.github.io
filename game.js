@@ -33,6 +33,7 @@ const ACCOUNT_STORAGE_KEY = "dino_dodger_accounts_v1";
 const ACTIVE_ACCOUNT_KEY = "dino_dodger_active_account_v1";
 const RUN_LEADERBOARD_KEY = "dino_dodger_score_leaderboard_v2";
 const MAX_RUN_LEADERBOARD = 5;
+const GLOBAL_LEADERBOARD_COLLECTION = "leaderboard_scores";
 
 const world = {
   w: canvas.width,
@@ -84,6 +85,8 @@ let awaitingFirstStart = true;
 let accounts = {};
 let activeAccount = "Guest";
 let runLeaderboard = [];
+let db = null;
+let globalLeaderboardReady = false;
 
 let audioCtx;
 let musicStarted = false;
@@ -170,6 +173,70 @@ function saveRunLeaderboard() {
     localStorage.setItem(RUN_LEADERBOARD_KEY, JSON.stringify(runLeaderboard));
   } catch {
     // Ignore storage errors and continue gameplay.
+  }
+}
+
+function initGlobalLeaderboard() {
+  try {
+    if (!window.firebase || !window.DINOVEER_FIREBASE_CONFIG) {
+      return;
+    }
+
+    if (!window.firebase.apps || window.firebase.apps.length === 0) {
+      window.firebase.initializeApp(window.DINOVEER_FIREBASE_CONFIG);
+    }
+
+    db = window.firebase.firestore();
+    globalLeaderboardReady = true;
+  } catch {
+    globalLeaderboardReady = false;
+    db = null;
+  }
+}
+
+async function fetchGlobalLeaderboard() {
+  if (!globalLeaderboardReady || !db) return false;
+
+  try {
+    const snapshot = await db
+      .collection(GLOBAL_LEADERBOARD_COLLECTION)
+      .orderBy("score", "desc")
+      .limit(MAX_RUN_LEADERBOARD)
+      .get();
+
+    const globalTop = snapshot.docs
+      .map((doc) => doc.data())
+      .map((entry) => ({
+        name: cleanAccountName(entry.name) || "Guest",
+        score: Math.max(0, Math.floor(Number(entry.score) || 0)),
+        at: Number(entry.at) || Date.now(),
+      }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_RUN_LEADERBOARD);
+
+    if (globalTop.length > 0) {
+      runLeaderboard = globalTop;
+      renderRunLeaderboard();
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function submitGlobalScore(name, score) {
+  if (!globalLeaderboardReady || !db || score <= 0) return;
+
+  try {
+    await db.collection(GLOBAL_LEADERBOARD_COLLECTION).add({
+      name: cleanAccountName(name) || "Guest",
+      score: Math.floor(score),
+      at: Date.now(),
+    });
+  } catch {
+    // Keep local leaderboard active if remote write fails.
   }
 }
 
@@ -266,6 +333,12 @@ function recordRun(score) {
 
   saveAccounts();
   saveRunLeaderboard();
+
+  submitGlobalScore(accountName, score)
+    .then(() => fetchGlobalLeaderboard())
+    .catch(() => {
+      // Local leaderboard already updated.
+    });
 }
 
 function attachAccountEvents() {
@@ -1463,9 +1536,11 @@ function frame(now) {
 try {
   accounts = loadAccounts();
   runLeaderboard = loadRunLeaderboard();
+  initGlobalLeaderboard();
   attachAccountEvents();
   setActiveAccount(loadActiveAccount());
   renderRunLeaderboard();
+  fetchGlobalLeaderboard();
 
   updateMusicIndicator();
   reset(true);
