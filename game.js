@@ -5,11 +5,15 @@ const statusEl = document.getElementById("status");
 const topScoreEl = document.getElementById("top-score");
 const topJumpsEl = document.getElementById("top-jumps");
 const invincibleTimerEl = document.getElementById("invincible-timer");
-const topScoreValueEl = document.getElementById("top-score-value");
 const musicIndicatorEl = document.getElementById("music-indicator");
+const accountNameEl = document.getElementById("account-name");
+const accountSaveEl = document.getElementById("account-save");
+const activeAccountEl = document.getElementById("active-account");
+const accountBestEl = document.getElementById("account-best");
+const runSummaryEl = document.getElementById("run-summary");
+const runSummaryMetaEl = document.getElementById("run-summary-meta");
+const runLeaderboardListEl = document.getElementById("run-leaderboard-list");
 
-const SCORE_STORAGE_KEY = "dino_dodger_top_score_v1";
-const MAX_TOP_SCORES = 1;
 const JUMP_BUFFER_MS = 120;
 const BIOME_SWITCH_SCORE = 5000;
 const BIOME_BEACH_SCORE = 10000;
@@ -22,6 +26,13 @@ const SAFE_POCKET_START_MS = 4700;
 const SAFE_POCKET_END_MS = 6200;
 const MUSIC_BASE_VOLUME = 0.11;
 const LOSE_SOUND_OFFSET_SEC = 0.09;
+const GAME_PACE_MULTIPLIER = 1.75;
+const HUNTER_OBSTACLE_MIN_GAP = 220;
+const HUNTER_HUNTER_MIN_GAP = 150;
+const ACCOUNT_STORAGE_KEY = "dino_dodger_accounts_v1";
+const ACTIVE_ACCOUNT_KEY = "dino_dodger_active_account_v1";
+const RUN_LEADERBOARD_KEY = "dino_dodger_score_leaderboard_v2";
+const MAX_RUN_LEADERBOARD = 5;
 
 const world = {
   w: canvas.width,
@@ -67,8 +78,12 @@ let lastPowerupSpawn = 0;
 let lastRockSpawn = 0;
 let lastWaveSpawn = 0;
 let gameTime = 0;
-let highScores = [];
 let jumpBufferTimer = 0;
+let firstHunterSpawned = false;
+let awaitingFirstStart = true;
+let accounts = {};
+let activeAccount = "Guest";
+let runLeaderboard = [];
 
 let audioCtx;
 let musicStarted = false;
@@ -88,43 +103,197 @@ try {
   loseSound = null;
 }
 
-function loadHighScores() {
-  try {
-    const raw = localStorage.getItem(SCORE_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
+function cleanAccountName(name) {
+  const cleaned = String(name || "").replace(/\s+/g, " ").trim();
+  return cleaned.slice(0, 16);
+}
 
-    return parsed
-      .map((value) => Math.floor(Number(value)))
-      .filter((value) => Number.isFinite(value) && value > 0)
-      .sort((a, b) => b - a)
-      .slice(0, MAX_TOP_SCORES);
+function loadAccounts() {
+  try {
+    const raw = localStorage.getItem(ACCOUNT_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return parsed;
   } catch {
-    return [];
+    return {};
   }
 }
 
-function saveHighScores() {
+function saveAccounts() {
   try {
-    localStorage.setItem(SCORE_STORAGE_KEY, JSON.stringify(highScores));
+    localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(accounts));
   } catch {
     // Ignore storage errors and continue gameplay.
   }
 }
 
-function renderHighScores() {
-  topScoreValueEl.textContent = highScores[0] ? `${highScores[0]} pts` : "---";
+function loadActiveAccount() {
+  try {
+    return cleanAccountName(localStorage.getItem(ACTIVE_ACCOUNT_KEY)) || "Guest";
+  } catch {
+    return "Guest";
+  }
 }
 
-function recordScore(score) {
+function saveActiveAccount() {
+  try {
+    localStorage.setItem(ACTIVE_ACCOUNT_KEY, activeAccount);
+  } catch {
+    // Ignore storage errors and continue gameplay.
+  }
+}
+
+function loadRunLeaderboard() {
+  try {
+    const raw = localStorage.getItem(RUN_LEADERBOARD_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((entry) => entry && typeof entry === "object")
+      .map((entry) => ({
+        name: cleanAccountName(entry.name) || "Guest",
+        score: Math.max(0, Math.floor(Number(entry.score) || 0)),
+        at: Number(entry.at) || Date.now(),
+      }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_RUN_LEADERBOARD);
+  } catch {
+    return [];
+  }
+}
+
+function saveRunLeaderboard() {
+  try {
+    localStorage.setItem(RUN_LEADERBOARD_KEY, JSON.stringify(runLeaderboard));
+  } catch {
+    // Ignore storage errors and continue gameplay.
+  }
+}
+
+function ensureAccount(name) {
+  const accountName = cleanAccountName(name) || "Guest";
+  if (!accounts[accountName]) {
+    accounts[accountName] = {
+      bestScore: 0,
+      runs: 0,
+      updatedAt: Date.now(),
+    };
+  } else {
+    const existing = accounts[accountName];
+    existing.bestScore = Math.max(0, Math.floor(Number(existing.bestScore) || 0));
+    existing.runs = Math.max(0, Math.floor(Number(existing.runs) || 0));
+    existing.updatedAt = Number(existing.updatedAt) || Date.now();
+  }
+  return accountName;
+}
+
+function renderActiveAccountMeta() {
+  if (activeAccountEl) {
+    activeAccountEl.textContent = `Active: ${activeAccount}`;
+  }
+  if (accountBestEl) {
+    const account = accounts[activeAccount] || { bestScore: 0 };
+    accountBestEl.textContent = `Best: ${account.bestScore}`;
+  }
+}
+
+function setActiveAccount(name) {
+  activeAccount = ensureAccount(name);
+  if (accountNameEl) accountNameEl.value = activeAccount;
+  renderActiveAccountMeta();
+  saveAccounts();
+  saveActiveAccount();
+}
+
+function renderRunLeaderboard() {
+  if (!runLeaderboardListEl) return;
+  runLeaderboardListEl.innerHTML = "";
+
+  const top = runLeaderboard.slice(0, MAX_RUN_LEADERBOARD);
+  if (top.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "No runs yet";
+    runLeaderboardListEl.appendChild(li);
+    return;
+  }
+
+  for (const entry of top) {
+    const li = document.createElement("li");
+    li.textContent = `${entry.name} - ${entry.score} pts`;
+    runLeaderboardListEl.appendChild(li);
+  }
+}
+
+function showRunSummary(lastScore) {
+  if (!runSummaryEl || !runSummaryMetaEl) return;
+  const account = accounts[activeAccount] || {
+    bestScore: 0,
+    runs: 0,
+  };
+  runSummaryMetaEl.textContent = `Account: ${activeAccount} | Score: ${lastScore} | Best Score: ${account.bestScore} | Runs: ${account.runs}`;
+  renderRunLeaderboard();
+  runSummaryEl.classList.remove("hidden");
+}
+
+function hideRunSummary() {
+  if (!runSummaryEl) return;
+  runSummaryEl.classList.add("hidden");
+}
+
+function recordRun(score) {
   if (score <= 0) return;
 
-  highScores.push(score);
-  highScores.sort((a, b) => b - a);
-  highScores = highScores.slice(0, MAX_TOP_SCORES);
-  saveHighScores();
-  renderHighScores();
+  const accountName = ensureAccount(activeAccount);
+  const account = accounts[accountName];
+  account.runs += 1;
+  account.bestScore = Math.max(account.bestScore, score);
+  account.updatedAt = Date.now();
+
+  if (accountName === activeAccount) {
+    renderActiveAccountMeta();
+  }
+
+  runLeaderboard.push({
+    name: accountName,
+    score,
+    at: Date.now(),
+  });
+  runLeaderboard.sort((a, b) => b.score - a.score);
+  runLeaderboard = runLeaderboard.slice(0, MAX_RUN_LEADERBOARD);
+
+  saveAccounts();
+  saveRunLeaderboard();
+}
+
+function attachAccountEvents() {
+  if (accountNameEl) {
+    accountNameEl.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+    });
+  }
+
+  if (accountSaveEl) {
+    accountSaveEl.addEventListener("click", () => {
+      const entered = cleanAccountName(accountNameEl ? accountNameEl.value : "");
+      setActiveAccount(entered || "Guest");
+      statusEl.textContent = `Account set: ${activeAccount}`;
+      renderRunLeaderboard();
+    });
+  }
+
+  if (accountNameEl) {
+    accountNameEl.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const entered = cleanAccountName(accountNameEl.value);
+      setActiveAccount(entered || "Guest");
+      statusEl.textContent = `Account set: ${activeAccount}`;
+      renderRunLeaderboard();
+    });
+  }
 }
 
 function updateHud() {
@@ -373,17 +542,19 @@ function endRun(message, playFailSound = true) {
   if (!world.playing) return;
 
   world.playing = false;
+  const finalScore = Math.floor(world.score);
   if (playFailSound) {
     playCrash();
   }
   statusEl.textContent = `${message} - tap/press jump to restart`;
-  recordScore(Math.floor(world.score));
+  recordRun(finalScore);
+  showRunSummary(finalScore);
 }
 
-function reset() {
+function reset(startPaused = false) {
   world.score = 0;
   world.speed = world.baseSpeed;
-  world.playing = true;
+  world.playing = !startPaused;
   world.slowTimer = 0;
   world.invincibleTimer = 0;
   world.stormInvincibilityUsed = false;
@@ -411,8 +582,11 @@ function reset() {
   lastPowerupSpawn = 0;
   lastRockSpawn = 0;
   lastWaveSpawn = 0;
+  firstHunterSpawned = false;
   world.biome = "night";
-  statusEl.textContent = "Running";
+  awaitingFirstStart = startPaused;
+  statusEl.textContent = startPaused ? "Press jump to start" : "Running";
+  hideRunSummary();
   updateHud();
   updateInvincibilityCountdown();
 }
@@ -441,7 +615,7 @@ function queueJump() {
   ensureAudio();
 
   if (!world.playing) {
-    reset();
+    reset(false);
     return;
   }
 
@@ -450,6 +624,16 @@ function queueJump() {
 }
 
 window.addEventListener("keydown", (e) => {
+  const target = e.target;
+  const isTypingField = target && (
+    target.tagName === "INPUT"
+    || target.tagName === "TEXTAREA"
+    || target.isContentEditable
+  );
+  if (isTypingField) {
+    return;
+  }
+
   if (e.code === "KeyM" && !e.repeat) {
     e.preventDefault();
     toggleMusicMute();
@@ -462,7 +646,10 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-window.addEventListener("pointerdown", () => {
+window.addEventListener("pointerdown", (e) => {
+  if (e.target !== canvas) {
+    return;
+  }
   queueJump();
 });
 
@@ -477,13 +664,26 @@ function spawnObstacle() {
   });
 }
 
-function spawnHunter() {
+function spawnHunter(firstSpawn = false) {
+  const hunterSpeedMult = firstSpawn ? 0.84 : 1.07;
+  const baseX = world.w + (firstSpawn ? 190 : 40);
+  const minXFromObstacles = obstacles.reduce((maxX, o) => {
+    if (o.crushed) return maxX;
+    return Math.max(maxX, o.x + o.w + HUNTER_OBSTACLE_MIN_GAP);
+  }, baseX);
+  const minXFromHunters = hunters.reduce((maxX, h) => {
+    if (h.stomped) return maxX;
+    return Math.max(maxX, h.x + h.w + HUNTER_HUNTER_MIN_GAP);
+  }, baseX);
+  const spawnX = Math.max(baseX, minXFromObstacles, minXFromHunters);
+
   hunters.push({
-    x: world.w + 40,
+    x: spawnX,
     y: world.groundY - 40,
     w: 48,
     h: 40,
     legTick: Math.random() * 12,
+    speedMult: hunterSpeedMult,
     passed: false,
   });
 }
@@ -568,6 +768,7 @@ function currentTargetSpeed() {
 function update(dt) {
   gameTime += dt;
   jumpBufferTimer = Math.max(0, jumpBufferTimer - dt);
+  const frameScale = (dt / 16.6667) * GAME_PACE_MULTIPLIER;
 
   if (!world.playing) {
     return;
@@ -578,7 +779,7 @@ function update(dt) {
   const desired = currentTargetSpeed() * slowFactor;
   world.speed += (desired - world.speed) * Math.min(1, dt * 0.0035);
 
-  world.score += world.speed * 0.3;
+  world.score += world.speed * 0.3 * frameScale;
   if (world.slowTimer > 0) {
     world.slowTimer = Math.max(0, world.slowTimer - dt);
   }
@@ -617,11 +818,11 @@ function update(dt) {
   let gravityScale = 1;
   if (player.floatTimer > 0) {
     gravityScale = 0.34;
-    player.vy -= 0.17;
+    player.vy -= 0.17 * frameScale;
   }
 
-  player.vy += world.gravity * gravityScale;
-  player.y += player.vy;
+  player.vy += world.gravity * gravityScale * frameScale;
+  player.y += player.vy * frameScale;
 
   if (world.biome === "cliffs") {
     const centerY = player.y + player.h * 0.5;
@@ -629,7 +830,7 @@ function update(dt) {
     const pulse = Math.sin(gameTime * 0.0024) > 0 ? 1 : -1;
     const gustBase = lane * pulse * 0.22;
     const gust = safePocket ? gustBase * 0.3 : gustBase;
-    player.x += gust * (dt / 16);
+    player.x += gust * frameScale;
   }
 
   player.x = Math.max(70, Math.min(world.w * 0.45, player.x));
@@ -651,8 +852,13 @@ function update(dt) {
     lastSpawn = gameTime;
   }
 
-  if (gameTime - lastHunterSpawn > 3600 + Math.random() * 2200) {
-    spawnHunter();
+  const hunterGraceScore = 1100;
+  const hunterInterval = firstHunterSpawned
+    ? 3600 + Math.random() * 2200
+    : 6200 + Math.random() * 1800;
+  if (world.score >= hunterGraceScore && gameTime - lastHunterSpawn > hunterInterval) {
+    spawnHunter(!firstHunterSpawned);
+    firstHunterSpawned = true;
     lastHunterSpawn = gameTime;
   }
 
@@ -678,7 +884,7 @@ function update(dt) {
   }
 
   for (const o of obstacles) {
-    o.x -= world.speed;
+    o.x -= world.speed * frameScale;
     if (!o.passed && o.x + o.w < player.x) {
       o.passed = true;
       world.score += 35;
@@ -696,8 +902,8 @@ function update(dt) {
   }
 
   for (const h of hunters) {
-    h.x -= world.speed * 1.07;
-    h.legTick += world.speed * 0.2;
+    h.x -= world.speed * h.speedMult * frameScale;
+    h.legTick += world.speed * 0.2 * frameScale;
     if (!h.passed && h.x + h.w < player.x) {
       h.passed = true;
       world.score += 50;
@@ -722,8 +928,8 @@ function update(dt) {
   }
 
   for (const f of flyers) {
-    f.x -= world.speed * 0.9;
-    f.bob += 0.08;
+    f.x -= world.speed * 0.9 * frameScale;
+    f.bob += 0.08 * frameScale;
     f.dropCooldown += dt;
 
     if (!f.dropped && f.dropCooldown > 900 && f.x < player.x + 150) {
@@ -748,9 +954,9 @@ function update(dt) {
 
   for (const e of eggs) {
     const xAdjust = Math.max(-0.9, Math.min(0.9, (e.targetX - e.x) * 0.025));
-    e.x += xAdjust - world.speed * 0.58;
-    e.vy += 0.45;
-    e.y += e.vy;
+    e.x += xAdjust * frameScale - world.speed * 0.58 * frameScale;
+    e.vy += 0.45 * frameScale;
+    e.y += e.vy * frameScale;
 
     if (rectHit(player, e)) {
       world.slowTimer = 2100;
@@ -765,8 +971,8 @@ function update(dt) {
   }
 
   for (const p of powerUps) {
-    p.x -= world.speed;
-    p.bob += 0.07;
+    p.x -= world.speed * frameScale;
+    p.bob += 0.07 * frameScale;
     if (rectHit(player, p)) {
       player.doubleJumpCharges += 1;
       p.collected = true;
@@ -776,14 +982,14 @@ function update(dt) {
   }
 
   for (const shard of rockShards) {
-    shard.x -= world.speed * 0.24;
+    shard.x -= world.speed * 0.24 * frameScale;
     if (shard.warningTimer > 0) {
       shard.warningTimer -= dt;
       continue;
     }
 
-    shard.vy += 0.5;
-    shard.y += shard.vy;
+    shard.vy += 0.5 * frameScale;
+    shard.y += shard.vy * frameScale;
 
     if (rectHit(player, shard)) {
       if (world.invincibleTimer > 0 && player.onGround) {
@@ -801,8 +1007,8 @@ function update(dt) {
   }
 
   for (const wave of rogueWaves) {
-    wave.x -= world.speed * 1.18;
-    wave.surge += 0.08;
+    wave.x -= world.speed * 1.18 * frameScale;
+    wave.surge += 0.08 * frameScale;
 
     const waveHit = {
       x: wave.x,
@@ -859,13 +1065,13 @@ function update(dt) {
   }
 
   for (const p of dust) {
-    p.x -= world.speed * 0.8;
-    p.life -= 1;
-    p.r *= 0.98;
+    p.x -= world.speed * 0.8 * frameScale;
+    p.life -= frameScale;
+    p.r *= Math.pow(0.98, frameScale);
   }
   dust = dust.filter((p) => p.life > 0 && p.r > 0.4);
 
-  player.frame += 1;
+  player.frame += frameScale;
 
   if (world.playing) {
     if (world.invincibleTimer > 0) {
@@ -909,11 +1115,17 @@ function drawBackground() {
       ctx.fillRect(x, y, 38, 3);
     }
 
-    ctx.fillStyle = "#2a4f67";
-    for (let i = 0; i < 7; i += 1) {
-      const x = i * 210 - ((gameTime * 0.03) % 210) - 60;
-      ctx.fillRect(x, world.groundY - 82 - (i % 2) * 10, 160, 58);
+    ctx.fillStyle = "#274a61";
+    ctx.beginPath();
+    ctx.moveTo(0, world.groundY - 44);
+    for (let x = 0; x <= world.w + 40; x += 40) {
+      const ridgeY = world.groundY - 70 - Math.sin((x + gameTime * 0.02) * 0.02) * 10;
+      ctx.lineTo(x, ridgeY);
     }
+    ctx.lineTo(world.w, world.groundY - 26);
+    ctx.lineTo(0, world.groundY - 26);
+    ctx.closePath();
+    ctx.fill();
 
     ctx.fillStyle = "#235a80";
     ctx.fillRect(0, world.groundY - 24, world.w, 24);
@@ -1220,24 +1432,45 @@ function draw() {
     ctx.fillStyle = "rgba(0,0,0,0.32)";
     ctx.fillRect(0, 0, world.w, world.h);
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 36px Trebuchet MS";
-    ctx.fillText("Game Over", world.w / 2 - 105, world.h / 2 - 8);
-    ctx.font = "20px Trebuchet MS";
-    ctx.fillText("Jump to restart", world.w / 2 - 88, world.h / 2 + 28);
+    if (awaitingFirstStart) {
+      ctx.font = "bold 34px Trebuchet MS";
+      ctx.fillText("DinoVeer", world.w / 2 - 72, world.h / 2 - 14);
+      ctx.font = "20px Trebuchet MS";
+      ctx.fillText("Press jump to start", world.w / 2 - 92, world.h / 2 + 20);
+    } else {
+      ctx.font = "bold 36px Trebuchet MS";
+      ctx.fillText("Game Over", world.w / 2 - 105, world.h / 2 - 8);
+      ctx.font = "20px Trebuchet MS";
+      ctx.fillText("Jump to restart", world.w / 2 - 88, world.h / 2 + 28);
+    }
   }
 }
 
 let prev = performance.now();
 function frame(now) {
-  const dt = Math.min(34, now - prev);
-  prev = now;
-  update(dt);
-  draw();
-  requestAnimationFrame(frame);
+  try {
+    const dt = Math.min(34, now - prev);
+    prev = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(frame);
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    statusEl.textContent = `Runtime error: ${message}`;
+  }
 }
 
-highScores = loadHighScores();
-renderHighScores();
-updateMusicIndicator();
-reset();
-requestAnimationFrame(frame);
+try {
+  accounts = loadAccounts();
+  runLeaderboard = loadRunLeaderboard();
+  attachAccountEvents();
+  setActiveAccount(loadActiveAccount());
+  renderRunLeaderboard();
+
+  updateMusicIndicator();
+  reset(true);
+  requestAnimationFrame(frame);
+} catch (err) {
+  const message = err && err.message ? err.message : String(err);
+  statusEl.textContent = `Init error: ${message}`;
+}
